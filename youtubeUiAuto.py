@@ -1,5 +1,6 @@
 import time
 from selenium import webdriver
+from selenium.common import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.edge.options import Options as EdgeOptions
@@ -10,6 +11,7 @@ import logging
 import random
 import re
 import requests
+
 # 로깅 설정
 logging.basicConfig(filename='youtube_search.log', level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -42,7 +44,7 @@ else:
 # 검색창 요소 찾기
 search_box = driver.find_element(By.NAME, 'search_query')
 
-#검색창 클릭 및 검색어 입력
+# 검색창 클릭 및 검색어 입력
 search_box.click()
 search_box.send_keys(search_keyword)
 
@@ -52,31 +54,52 @@ search_box.send_keys(Keys.ENTER)
 time.sleep(2)
 
 # 필터 아이콘 요소 찾기
-filter_icon = driver.find_element(By.XPATH, "//button[@aria-label='검색 필터']")
 
+try:
+    filter_icon = driver.find_element(By.XPATH, "//button[@aria-label='검색 필터']")
+except NoSuchElementException:
+    try:
+        filter_icon = driver.find_element(By.XPATH, "//button[@aria-label='Search filters']")
+    except NoSuchElementException:
+        print("검색 필터 아이콘을 찾을 수 없습니다.")
+        # 다른 처리 또는 예외 처리 로직을 추가하세요.
 
 # 필터 아이콘을 클릭하기 위해 ActionChains를 사용
-action = ActionChains(driver)
-action.click(filter_icon).perform()
-
-# "실시간 검색"을 title 속성으로 식별하는 CSS 선택자
-css_selector = "div[title='실시간 검색'] yt-formatted-string"
-
-# 해당 CSS 선택자로 요소를 찾습니다.
-elements = driver.find_elements(By.CSS_SELECTOR, css_selector)
-
-# 찾은 요소들 중에서 "실시간" 텍스트를 가진 요소를 찾습니다.
-target_element = None
-for element in elements:
-    if element.text == "실시간":
-        target_element = element
-        break
-
-# "실시간" 요소를 클릭합니다.
-if target_element:
-    target_element.click()
+if filter_icon:
+    action = ActionChains(driver)
+    action.click(filter_icon).perform()
+    time.sleep(2)
 else:
-    print("해당 요소를 찾을 수 없습니다.")
+    print("검색 필터 아이콘을 찾을 수 없어 검색 필터를 클릭할 수 없습니다.")
+    # 다른 처리 또는 예외 처리 로직을 추가하세요
+time.sleep(2)
+try:
+    # "실시간 검색" 또는 "Search for Live"를 포함하는 CSS 선택자
+    css_selector = "div[title*='실시간 검색'], div[title*='Search for Live'] yt-formatted-string"
+
+    # 해당 CSS 선택자로 요소를 찾습니다.
+    elements = driver.find_elements(By.CSS_SELECTOR, css_selector)
+
+    # 찾은 요소들 중에서 "실시간" 또는 "Search for Live" 텍스트를 가진 요소를 찾습니다.
+    target_element = None
+    for element in elements:
+        if "실시간" in element.text or "Live" in element.text:
+            target_element = element
+            break
+
+    # "실시간" 또는 "Search for Live" 요소를 클릭합니다.
+    if target_element:
+        target_element.click()
+    else:
+        print("해당 요소를 찾을 수 없습니다.")
+        # 요소를 찾지 못했을 경우 예외 발생
+        raise Exception("실시간 검색 또는 Search for Live를 찾을 수 없습니다.")
+
+except Exception as e:
+    # 예외 처리: 요소를 찾지 못한 경우
+    print(f"오류 발생: {e}")
+    # 다른 동작을 수행하거나 오류 처리를 할 수 있습니다.
+
 
 # 첫 번째 검색 결과 영상 클릭 후 30~40초 시청 후 다시검색
 # first_video = driver.find_elements(By.TAG_NAME, "ytd-video-renderer")[1]
@@ -141,4 +164,3 @@ while not found:
         logging.info(f"Scrolled from {last_height} to {new_height}")
         if new_height == last_height:
             break  # 더 이상 스크롤되지 않으면 반복 중단
-
