@@ -17,6 +17,7 @@ logging.basicConfig(filename='youtube_search.log', level=logging.INFO, format='%
 
 edge_options = EdgeOptions()
 edge_options.add_argument("--log-level=DEBUG")
+
 # 로그 파일 지정
 log_path = "edge_driver.log"
 edge_service = EdgeService(EdgeChromiumDriverManager().install(), log_path=log_path)
@@ -29,17 +30,20 @@ driver.get('https://www.youtube.com')
 
 # 페이지 로딩 대기
 time.sleep(5)
+
 # API 엔드포인트
-api_endpoint = "https://esaydroid.softj.net/api/search-title/2"
+api_endpoint = "https://esaydroid.softj.net/api/search-title-for-admin"
+
 # API 요청
 response = requests.get(api_endpoint)
 if response.status_code == 200:
     data = response.json()
-    search_keyword = data.get('title', '')
-    print(f"검색할 제목: {search_keyword}")
+    search_keyword = data.get('keyword', '')
+    search_title = data.get('title', '')
 else:
     print("API 요청 실패")
     search_keyword = ''
+    search_title=''
 
 # 검색창 요소 찾기
 search_box = driver.find_element(By.NAME, 'search_query')
@@ -90,6 +94,7 @@ try:
     # "실시간" 또는 "Search for Live" 요소를 클릭합니다.
     if target_element:
         target_element.click()
+
     else:
         print("해당 요소를 찾을 수 없습니다.")
         # 요소를 찾지 못했을 경우 예외 발생
@@ -116,17 +121,6 @@ time.sleep(2)
 
 # 일치하는 문자열이 있는지 확인하면서 아래로 스크롤
 found = False
-# API 엔드포인트
-api_endpoint = "https://esaydroid.softj.net/api/search-title/1"
-# API 요청
-response = requests.get(api_endpoint)
-if response.status_code == 200:
-    data = response.json()
-    search_keyword = data.get('title', '')
-    print(f"검색할 제목: {search_keyword}")
-else:
-    print("API 요청 실패")
-    search_keyword = ''
 
 while not found:
 
@@ -136,18 +130,20 @@ while not found:
         title_text = title_element.get_attribute('title')
         # 특수문자 및 공백 제거 후 소문자로 변환
         title_text_clean = re.sub(r'\W+', '', title_text).lower()
-        search_keyword_clean = re.sub(r'\W+', '', search_keyword).lower()
+        search_title_clean = re.sub(r'\W+', '', search_title).lower()
         logging.info(f'Comparing video title: {title_text_clean}')
 
-        # search_keyword_clean의 길이 계산
-        keyword_length = len(search_keyword_clean)
+        # search_title_clean의 길이 계산
+        keyword_length = len(search_title_clean)
 
-        # title_text_clean을 search_keyword_clean과 길이를 맞추기 위해 잘라냅니다.
+        # title_text_clean을 search_title_clean과 길이를 맞추기 위해 잘라냅니다.
         title_text_clean = title_text_clean[:keyword_length]
 
-        if title_text_clean == search_keyword_clean:
+        if title_text_clean == search_title_clean:
             time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
             title_element.click()  # 일치하는 제목을 가진 첫 번째 요소 클릭
+            # time.sleep(random.randint(5000, 50000))  #
+            driver.close()
             found = True
             break
 
