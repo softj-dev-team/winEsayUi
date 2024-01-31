@@ -1,4 +1,6 @@
 import time
+
+import os
 from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver import ActionChains
@@ -7,17 +9,22 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import logging
 import random
 import re
 import requests
-
+from openai import OpenAI
 # 로깅 설정
 logging.basicConfig(filename='youtube_search.log', level=logging.INFO, format='%(asctime)s - %(message)s')
 
 edge_options = EdgeOptions()
 edge_options.add_argument("--log-level=DEBUG")
-
+edge_options.add_argument("disable-blink-features=AutomationControlled")
+edge_options.add_experimental_option('excludeSwitches', ['enable-automation'])
+edge_options.add_experimental_option('useAutomationExtension', False)
 # 로그 파일 지정
 log_path = "edge_driver.log"
 edge_service = EdgeService(EdgeChromiumDriverManager().install(), log_path=log_path)
@@ -25,12 +32,40 @@ edge_service = EdgeService(EdgeChromiumDriverManager().install(), log_path=log_p
 # edge_service = EdgeService(EdgeChromiumDriverManager().install())
 driver = webdriver.Edge(service=edge_service, options=edge_options)
 
+use_account=False
+if use_account :
+    # YouTube 로그인 URL
+    youtube_login_url = "https://accounts.google.com/ServiceLogin?service=youtube"
+
+    # YouTube에 접속
+    driver.get(youtube_login_url)
+
+    # 로그인 요소 찾기
+    try:
+        # 사용자 이름 입력
+        username_input = driver.find_element(By.ID, "identifierId")
+        username_input.send_keys("majorsafe4@gmail.com")  # 실제 사용자 이름으로 변경
+        username_input.send_keys(Keys.ENTER)
+        time.sleep(5)  # 페이지 로드 대기
+
+        # 비밀번호 입력
+        password_input = driver.find_element(By.NAME, "Passwd")
+        password_input.send_keys("!1qazsoftj")  # 실제 비밀번호로 변경
+        password_input.send_keys(Keys.ENTER)
+        time.sleep(3)  # 로그인 후 페이지 로드 대기
+
+        logging.info("YouTube 로그인 성공")
+    except Exception as e:
+        logging.error(f"로그인 중 오류 발생: {e}")
+
+
+
 # YouTube 페이지 열기
 driver.get('https://www.youtube.com')
 
 # 페이지 로딩 대기
-time.sleep(5)
 
+# time.sleep(random.uniform(60, 300))
 # API 엔드포인트
 api_endpoint = "https://esaydroid.softj.net/api/search-title-for-admin"
 
@@ -143,6 +178,71 @@ while not found:
             time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
             title_element.click()  # 일치하는 제목을 가진 첫 번째 요소 클릭
             # time.sleep(random.randint(5000, 50000))  #
+            time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
+
+            use_chat = False
+            if use_chat :
+                try:
+                    # iframe으로 전환
+                    WebDriverWait(driver, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "chatframe")))
+
+                    # 채팅 입력 필드 찾기
+                    chat_input = WebDriverWait(driver, 20).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div[contenteditable]"))
+                    )
+
+                    # 메시지 요소 찾기
+                    message_elements = driver.find_elements(By.XPATH,
+                                                            "//yt-live-chat-text-message-renderer[@class='style-scope yt-live-chat-item-list-renderer']/div[@id='content']/span[@id='message']")
+                    # 각 요소의 텍스트를 로그로 출력
+
+                    # 모든 메시지의 텍스트를 리스트로 저장
+                    messages = [element.text for element in message_elements]
+
+                    client = OpenAI(
+                        api_key=os.environ.get("OPENAI_API_KEY"),
+                    )
+
+                    # 메시지를 그룹으로 나누어 보낼 수량 설정
+                    batch_size = 5  # 예시로 5개의 메시지를 한 번에 보내도록 설정
+
+                    # 메시지를 배치로 나누어서 처리
+                    for i in range(0, len(messages), batch_size):
+                        batch_messages = messages[i:i + batch_size]
+
+                        # 각 메시지의 텍스트 추출
+                        user_messages = [{"role": "user", "content": message} for message in batch_messages]
+
+                        # OpenAI GPT API를 사용하여 메시지 분석 (API 호출 예시)
+                        completions = client.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            max_tokens=20,
+                            messages=[{"role": "system",
+                                       "content": "Certainly, in live broadcast chat, I engage in concise and complete conversations. I avoid terms like 'AI,' 'bot,' and 'chatbot,' and I do not provide assistance. I disregard repetitive sentences exceeding 30 characters, refrain from responding to other participants' questions, and exclude repeated conversations from other participants. I can respond to greetings from other users. Additionally, I make sure not to reuse previously used sentences."
+                                       }] + user_messages
+                        )
+
+                        # 생성된 대화 내용을 채팅창에 입력
+                        generated_responses = [choice.message.content for choice in completions.choices]
+
+                        # 이제 생성된 응답을 처리하거나 출력할 수 있습니다.
+                        for generated_response in generated_responses:
+                            # 생성된 응답을 처리 또는 출력하는 코드를 추가하세요.
+                            print(generated_response)
+                        time.sleep(12)
+                        # 생성된 대화 내용을 채팅창에 입력
+                        chat_input = driver.find_element(By.CSS_SELECTOR, "div[contenteditable]")
+                        chat_input.send_keys(generated_response)
+                        chat_input.send_keys(Keys.ENTER)
+
+                    # 원래 컨텍스트로 복귀
+                    driver.switch_to.default_content()
+
+                except TimeoutException:
+                    print("요소를 찾는 데 시간이 초과되었습니다.")
+                except NoSuchElementException:
+                    print("요소를 찾을 수 없습니다.")
+
             driver.close()
             found = True
             break
