@@ -6,7 +6,7 @@
 # 시스템 파일
 .DS_Store
 Thumbs.db
-
+/.idea/
 # IDE 설정 파일
 /.vs/
 /.vscode/
