@@ -175,7 +175,7 @@ except Exception as e:
 time.sleep(2)
 
 # 페이지 넘김 제한 설정
-page_limit = 15
+page_limit = 30
 current_page = 0
 
 # 일치하는 문자열이 있는지 확인하면서 아래로 스크롤
