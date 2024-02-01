@@ -2,7 +2,6 @@
 /bin/
 /obj/
 /build/
-/dist/
 /.venv/
 # 시스템 파일
 .DS_Store
