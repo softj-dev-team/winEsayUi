@@ -1,0 +1,34 @@
+# 빌드 결과물
+/bin/
+/obj/
+/build/
+/dist/
+/.venv/
+# 시스템 파일
+.DS_Store
+Thumbs.db
+
+# IDE 설정 파일
+/.vs/
+/.vscode/
+*.sublime-workspace
+
+# 종속성 디렉토리
+/node_modules/
+/vendor/
+
+# 환경 설정 파일
+.env
+.env.local
+
+# 로그 파일
+*.log
+
+# 아카이브 파일
+*.zip
+*.tar.gz
+
+# Python 가상 환경
+venv/
+*.pyc
+__pycache__/
