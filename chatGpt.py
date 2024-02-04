@@ -27,7 +27,52 @@ edge_options.add_experimental_option('useAutomationExtension', False)
 edge_service = EdgeService(EdgeChromiumDriverManager().install())
 driver = webdriver.Edge(service=edge_service, options=edge_options)
 
+def search_filter():
+    try:
+        filter_icon = driver.find_element(By.XPATH, "//button[@aria-label='검색 필터']")
+    except NoSuchElementException:
+        try:
+            filter_icon = driver.find_element(By.XPATH, "//button[@aria-label='Search filters']")
+        except NoSuchElementException:
+            print("검색 필터 아이콘을 찾을 수 없습니다.")
+            # 다른 처리 또는 예외 처리 로직을 추가하세요.
 
+    # 필터 아이콘을 클릭하기 위해 ActionChains를 사용
+    if filter_icon:
+        action = ActionChains(driver)
+        action.click(filter_icon).perform()
+        time.sleep(2)
+    else:
+        print("검색 필터 아이콘을 찾을 수 없어 검색 필터를 클릭할 수 없습니다.")
+        # 다른 처리 또는 예외 처리 로직을 추가하세요
+    time.sleep(2)
+    try:
+        # "실시간 검색" 또는 "Search for Live"를 포함하는 CSS 선택자
+        css_selector = "div[title*='실시간 검색'], div[title*='Search for Live'] yt-formatted-string"
+
+        # 해당 CSS 선택자로 요소를 찾습니다.
+        elements = driver.find_elements(By.CSS_SELECTOR, css_selector)
+
+        # 찾은 요소들 중에서 "실시간" 또는 "Search for Live" 텍스트를 가진 요소를 찾습니다.
+        target_element = None
+        for element in elements:
+            if "실시간" in element.text or "Live" in element.text:
+                target_element = element
+                break
+
+        # "실시간" 또는 "Search for Live" 요소를 클릭합니다.
+        if target_element:
+            target_element.click()
+
+        else:
+            print("해당 요소를 찾을 수 없습니다.")
+            # 요소를 찾지 못했을 경우 예외 발생
+            raise Exception("실시간 검색 또는 Search for Live를 찾을 수 없습니다.")
+
+    except Exception as e:
+        # 예외 처리: 요소를 찾지 못한 경우
+        print(f"오류 발생: {e}")
+        # 다른 동작을 수행하거나 오류 처리를 할 수 있습니다.
 def handle_chat(driver, response_threshold=1):
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),
@@ -157,15 +202,17 @@ def send_long_text(element, text, delay=0.1):
         element.send_keys(char)
         time.sleep(delay)
 
+# use_filter = True
+# if use_filter:
+#     search_filter()
 
 use_chat = True
 if use_chat:
-
     use_google_login = True
     if use_google_login:
         google_login()
     time.sleep(5)
     # YouTube 페이지 열기https://youtube.com/live/Iy3cmdYKFMc?feature=share
-    driver.get('https://youtube.com/live/Iy3cmdYKFMc?feature=share')
+    driver.get('https://youtube.com/live/QYia50QH4zo?feature=share')
     time.sleep(5)
     handle_chat(driver)
