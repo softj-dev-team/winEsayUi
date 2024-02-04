@@ -1,6 +1,7 @@
 import time
 
 import os
+import random
 from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver.edge.service import Service as EdgeService
@@ -12,9 +13,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import logging
-
-import requests
 from openai import OpenAI
+
+import api
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -25,13 +26,29 @@ edge_options.add_experimental_option('excludeSwitches', ['enable-automation'])
 edge_options.add_experimental_option('useAutomationExtension', False)
 edge_service = EdgeService(EdgeChromiumDriverManager().install())
 driver = webdriver.Edge(service=edge_service, options=edge_options)
+
+
 def handle_chat(driver, response_threshold=1):
     client = OpenAI(
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
     last_message_index = 0  # 마지막으로 처리한 메시지의 인덱스
-    last_sent_message = None  # 마지막으로 전송한 메시지 저장
+    sent_messages = set()  # 전송된 모든 메시지 저장 (중복 확인용)
+    # 사전에 정의된 응답
+    predefined_responses = {
+        "안녕하세요": "안녕하세요! 어서오세요~",
+        "결제": "지금은 시범 운영중입니다. 이용 문의는 텔레그렘 @EsayUiDev 로 해주세요",
+        "설치": "지금은 시범 운영중입니다. 이용 문의는 텔레그렘 @EsayUiDev 로 해주세요",
+        "이용문의": "지금은 시범 운영중입니다. 이용 문의는 텔레그렘 @EsayUiDev 로 해주세요",
+        "문의": "지금은 시범 운영중입니다. 이용 문의는 텔레그렘 @EsayUiDev 로 해주세요",
+        # 여기에 더 많은 사전 정의된 응답을 추가할 수 있습니다.
+    }
 
+    # 특정 주제에 대한 지식
+    topic_knowledge = {
+        "챗봇": "챗봇.",
+        # 여기에 더 많은 주제에 대한 지식을 추가할 수 있습니다.
+    }
     try:
         WebDriverWait(driver, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "chatframe")))
         while True:
@@ -51,57 +68,63 @@ def handle_chat(driver, response_threshold=1):
                 completions = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     max_tokens=100,
-                    messages=[{"role": "system",
-                               "content": "I avoid terms like 'AI', 'bot', and 'chatbot', and do not offer "
-                                          "assistance. I ignore repetitive sentences over 30 characters, "
-                                          "do not respond to other participants' questions, and exclude their "
-                                          "repeated conversations. I can respond to greetings from other users. "
-                                          "Additionally, I ensure not to reuse previously used sentences. When "
-                                          "introducing myself to others, I am a '메니져'. When answering, "
-                                          "the sentence length cannot exceed 100 characters. In conversation, "
-                                          "I use concise and complete sentences limited to 50 characters."}] +
-                             user_messages
+                    temperature=0.6,
+                    n=1,
+                    messages=[{"role": "system", "content": os.environ.get("CONTENT")}] + user_messages
                 )
 
                 generated_responses = [choice.message.content for choice in completions.choices]
                 for generated_response in generated_responses:
-                    if generated_response != last_sent_message:  # 이전에 전송한 메시지와 다른 경우에만 전송
+
+                    # 사전에 정의된 응답이나 주제에 대한 지식을 검사
+                    response_to_send = predefined_responses.get(generated_response,
+                                                                topic_knowledge.get(generated_response,
+                                                                                    generated_response))
+
+
+                    if generated_response not in sent_messages:  # 이전에 전송하지 않은 메시지만 전송
                         WebDriverWait(driver, 10).until(
                             EC.element_to_be_clickable((By.CSS_SELECTOR, "div[contenteditable]"))
                         )
-                        send_long_text(chat_input, generated_response)
-                        time.sleep(2)
+                        # 긴 텍스트를 입력하는 함수 호출
+                        send_long_text(chat_input, generated_response, delay=0.1)
+                        time.sleep(2)  # 메시지를 모두 입력한 후 잠시 기다림
                         chat_input.send_keys(Keys.ENTER)
-                        last_sent_message = generated_response  # 마지막으로 전송된 메시지 업데이트
+                        sent_messages.add(response_to_send)  # 전송된 메시지 저장
                     else:
-                        print("Skipping message as it's the same as the last sent message.")
+                        logging.info("Skipping message as it's the same as a previously sent message.")
 
-            time.sleep(5)
+                time.sleep(5)  # 새 메시지 확인 간의 지연
+            else:
+                time.sleep(5)  # 채팅 메시지가 없을 경우 대기
         driver.switch_to.default_content()
 
     except TimeoutException:
-        print("TimeoutException occurred.")
+        logging.error("TimeoutException occurred.")
     except NoSuchElementException:
-        print("NoSuchElementException occurred.")
+        logging.error("NoSuchElementException occurred.")
 
-def google_login(driver, response_threshold=1):
-    use_account=True
+
+def google_login():
+    global google_table_id
+    use_account = True
 
     # API 엔드포인트
     api_endpoint = "https://esaydroid.softj.net/api/google-account"
 
     # API 요청
-    response = requests.get(api_endpoint)
-    if response.status_code == 200:
-        data = response.json()
-        google_account_email = data.get('email', '')
-        google_account_passwd = data.get('password', '')
-        google_table_id = data.get('id', '')
-        google_account_level = data.get('level', '')
+    response = api.get('/api/google-account', params=None)
+
+    if 'id' in response:
+
+        google_account_email = response.get('email', '')
+        google_account_passwd = response.get('password', '')
+        google_table_id = response.get('id', '')
+        google_account_level = response.get('level', '')
     else:
         print("API 요청 실패")
 
-    if use_account :
+    if use_account:
         # YouTube 로그인 URL
         youtube_login_url = "https://accounts.google.com/ServiceLogin?service=youtube"
 
@@ -124,11 +147,9 @@ def google_login(driver, response_threshold=1):
 
             logging.info("YouTube 로그인 성공")
         except Exception as e:
+            api.post('/api/google-account_result', {"id": google_table_id})
             logging.error(f"로그인 중 오류 발생: {e}")
 
-
-# YouTube 페이지 열기
-# driver.get('https://www.youtube.com/watch?v=-j8e0xoH71M')
 
 def send_long_text(element, text, delay=0.1):
     """ 긴 텍스트를 여러 부분으로 나누어 입력하는 함수 """
@@ -136,7 +157,15 @@ def send_long_text(element, text, delay=0.1):
         element.send_keys(char)
         time.sleep(delay)
 
-# use_chat = True
-# if use_chat:
-#     handle_chat(driver)
-# time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
+
+use_chat = True
+if use_chat:
+
+    use_google_login = True
+    if use_google_login:
+        google_login()
+    time.sleep(5)
+    # YouTube 페이지 열기https://youtube.com/live/Iy3cmdYKFMc?feature=share
+    driver.get('https://youtube.com/live/Iy3cmdYKFMc?feature=share')
+    time.sleep(5)
+    handle_chat(driver)
