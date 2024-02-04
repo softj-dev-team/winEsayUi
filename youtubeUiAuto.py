@@ -147,8 +147,9 @@ def google_login():
             time.sleep(3)  # 로그인 후 페이지 로드 대기
 
             logging.info("YouTube 로그인 성공")
+            api.post('/api/google-account-result', {"id": google_table_id,"login_status":'Y'})
         except Exception as e:
-            api.post('/api/google-account_result', {"id": google_table_id})
+            api.post('/api/google-account-result', {"id": google_table_id,"login_status":'N'})
             logging.error(f"로그인 중 오류 발생: {e}")
             raise
 # 필터 아이콘 요소 찾기
