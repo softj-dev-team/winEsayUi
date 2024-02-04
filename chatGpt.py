@@ -4,6 +4,7 @@ import os
 import random
 from selenium import webdriver
 from selenium.common import NoSuchElementException
+from selenium.webdriver import ActionChains
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.edge.options import Options as EdgeOptions
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -14,7 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import logging
 from openai import OpenAI
-
+import re
 import api
 
 logging.basicConfig(level=logging.DEBUG)
@@ -153,15 +154,9 @@ def handle_chat(driver, response_threshold=1):
 def google_login():
     global google_table_id
     use_account = True
-
-    # API 엔드포인트
-    api_endpoint = "https://esaydroid.softj.net/api/google-account"
-
     # API 요청
     response = api.get('/api/google-account', params=None)
-
     if 'id' in response:
-
         google_account_email = response.get('email', '')
         google_account_passwd = response.get('password', '')
         google_table_id = response.get('id', '')
@@ -202,17 +197,11 @@ def send_long_text(element, text, delay=0.1):
         element.send_keys(char)
         time.sleep(delay)
 
-# use_filter = True
-# if use_filter:
-#     search_filter()
 
 use_chat = True
 if use_chat:
     use_google_login = True
     if use_google_login:
         google_login()
-    time.sleep(5)
-    # YouTube 페이지 열기https://youtube.com/live/Iy3cmdYKFMc?feature=share
-    driver.get('https://youtube.com/live/QYia50QH4zo?feature=share')
-    time.sleep(5)
-    handle_chat(driver)
+        time.sleep(3)
+        handle_chat(driver)
