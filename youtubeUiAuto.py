@@ -103,23 +103,30 @@ def handle_chat(driver, response_threshold=1):
                 )
 
                 generated_responses = [choice.message.content for choice in completions.choices]
-                for generated_response in generated_responses:
+                # 사전 정의된 응답 또는 주제에 대한 지식 확인
+                for message in new_messages:
+                    response_key = predefined_responses.get(message.lower(), topic_knowledge.get(message.lower()))
+                    if response_key and response_key not in sent_messages:
+                        send_long_text(chat_input, response_key, delay=0.1)
+                        chat_input.send_keys(Keys.ENTER)
+                        sent_messages.add(response_key)
+                        time.sleep(2)  # 메시지를 모두 입력한 후 잠시 기다림
+                        continue
 
-                    # 사전에 정의된 응답이나 주제에 대한 지식을 검사
-                    response_to_send = predefined_responses.get(generated_response,
-                                                                topic_knowledge.get(generated_response,
-                                                                                    generated_response))
-
+                    completions = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        max_tokens=100,
+                        temperature=0.6,
+                        n=1,
+                        messages=[{"role": "system", "content": os.environ.get("CONTENT")}] + user_messages
+                    )
+                    generated_response = completions.choices[0].message.content
 
                     if generated_response not in sent_messages:  # 이전에 전송하지 않은 메시지만 전송
-                        WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, "div[contenteditable]"))
-                        )
-                        # 긴 텍스트를 입력하는 함수 호출
                         send_long_text(chat_input, generated_response, delay=0.1)
-                        time.sleep(2)  # 메시지를 모두 입력한 후 잠시 기다림
                         chat_input.send_keys(Keys.ENTER)
-                        sent_messages.add(response_to_send)  # 전송된 메시지 저장
+                        sent_messages.add(generated_response)  # 전송된 메시지 저장
+                        time.sleep(2)  # 메시지를 모두 입력한 후 잠시 기다림
                     else:
                         logging.info("Skipping message as it's the same as a previously sent message.")
 
