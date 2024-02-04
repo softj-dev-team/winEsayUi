@@ -53,9 +53,35 @@ def handle_chat(driver, response_threshold=1):
         # 여기에 더 많은 주제에 대한 지식을 추가할 수 있습니다.
     }
     try:
-        WebDriverWait(driver, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "chatframe")))
+        WebDriverWait(driver, 3).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "chatframe")))
+        # 요소가 나타날 때까지 최대 10초간 대기
+        element = WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located((By.XPATH, "//a[contains(@aria-label, '채팅에 참여하려면 채널을 만드세요')]"))
+        )
+
+        # 요소가 존재하면 클릭
+        if element:
+            element.click()
+            time.sleep(5)
+            driver.switch_to.default_content()
+            time.sleep(5)
+            button = WebDriverWait(driver, 3).until(
+                EC.presence_of_element_located((By.XPATH, "//button[contains(@aria-label, '채널 만들기')]"))
+            )
+            if element:
+                button.click()
+                time.sleep(10)
+                main()
+
+    except TimeoutException:
+        logging.error("TimeoutException occurred.")
+    except NoSuchElementException:
+        logging.error("NoSuchElementException occurred.")
+
+    try:
         while True:
-            chat_input = WebDriverWait(driver, 20).until(
+            # WebDriverWait(driver, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "chatframe")))
+            chat_input = WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "div[contenteditable]"))
             )
 
@@ -211,107 +237,104 @@ def search_init(search_keyword):
     search_box.send_keys(search_keyword)
     search_box.send_keys(Keys.ENTER)
 
-
-try:
-
-    use_chat = True
-    if use_chat:
-        use_google_login = True
-        if use_google_login:
-            try:
-                google_login()
-            except Exception as e:
-                time.sleep(3)
-                use_chat = False
-
-
-    # API 엔드포인트
-    response = api.get('/api/search-title-for-admin', params=None)
-    # API 요청
-    search_keyword = response.get('keyword', '')
-    search_title = response.get('title', '')
-    time.sleep(5)
-    driver.get('https://www.youtube.com')
-    # 검색창 요소가 로드될 때까지 최대 20초간 기다림
-    search_box = WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.NAME, "search_query"))
-    )
-    time.sleep(3)
-    # 검색창 클릭 및 검색어 입력
-    search_box.click()
-    time.sleep(3)
-    search_box.send_keys(search_keyword)
-    time.sleep(3)
-    # 검색 실행
-    search_box.send_keys(Keys.ENTER)
-    time.sleep(3)
-    search_filter()
-    time.sleep(3)
-except NoSuchElementException:
-    logging.error("NoSuchElementException: 검색창 요소를 찾을 수 없습니다.")
-except TimeoutException:
-    logging.error("TimeoutException: 요소가 지정된 시간 내에 나타나지 않았습니다.")
-
-
-time.sleep(3)
-
-# 페이지 넘김 제한 설정
-page_limit = 30
-current_page = 0
-
-# 일치하는 문자열이 있는지 확인하면서 아래로 스크롤
-found = False
-
-while not found and current_page < page_limit:
+def main():
     try:
-        videos = driver.find_elements(By.TAG_NAME, "ytd-video-renderer")
-        for video in videos:
-            title_element = video.find_element(By.ID, "video-title")
-            title_text = title_element.get_attribute('title')
-            # 특수문자 및 공백 제거 후 소문자로 변환
-            title_text_clean = re.sub(r'\W+', '', title_text).lower()
-            search_title_clean = re.sub(r'\W+', '', search_title).lower()
-            logging.info(f'Comparing video title: {title_text_clean}')
+        use_chat = True
+        if use_chat:
+            use_google_login = True
+            if use_google_login:
+                try:
+                    google_login()
+                except Exception as e:
+                    time.sleep(3)
+                    use_chat = False
+        # API 엔드포인트
+        response = api.get('/api/search-title-for-admin', params=None)
+        # API 요청
+        search_keyword = response.get('keyword', '')
+        search_title = response.get('title', '')
+        time.sleep(5)
+        driver.get('https://www.youtube.com')
+        # 검색창 요소가 로드될 때까지 최대 20초간 기다림
+        search_box = WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located((By.NAME, "search_query"))
+        )
+        time.sleep(3)
+        # 검색창 클릭 및 검색어 입력
+        search_box.click()
+        time.sleep(3)
+        search_box.send_keys(search_keyword)
+        time.sleep(3)
+        # 검색 실행
+        search_box.send_keys(Keys.ENTER)
+        time.sleep(3)
+        search_filter()
+        time.sleep(3)
+    except NoSuchElementException:
+        logging.error("NoSuchElementException: 검색창 요소를 찾을 수 없습니다.")
+    except TimeoutException:
+        logging.error("TimeoutException: 요소가 지정된 시간 내에 나타나지 않았습니다.")
 
-            # search_title_clean의 길이 계산
-            keyword_length = len(search_title_clean)
+    # 페이지 넘김 제한 설정
+    page_limit = 30
+    current_page = 0
 
-            # title_text_clean을 search_title_clean과 길이를 맞추기 위해 잘라냅니다.
-            title_text_clean = title_text_clean[:keyword_length]
+    # 일치하는 문자열이 있는지 확인하면서 아래로 스크롤
+    found = False
 
-            if title_text_clean == search_title_clean:
-                time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
-                title_element.click()  # 일치하는 제목을 가진 첫 번째 요소 클릭
-                time.sleep(random.randint(2, 5))
-                if use_chat:
-                    handle_chat(driver)
+    while not found and current_page < page_limit:
+        try:
+            videos = driver.find_elements(By.TAG_NAME, "ytd-video-renderer")
+            for video in videos:
+                title_element = video.find_element(By.ID, "video-title")
+                title_text = title_element.get_attribute('title')
+                # 특수문자 및 공백 제거 후 소문자로 변환
+                title_text_clean = re.sub(r'\W+', '', title_text).lower()
+                search_title_clean = re.sub(r'\W+', '', search_title).lower()
+                logging.info(f'Comparing video title: {title_text_clean}')
+
+                # search_title_clean의 길이 계산
+                keyword_length = len(search_title_clean)
+
+                # title_text_clean을 search_title_clean과 길이를 맞추기 위해 잘라냅니다.
+                title_text_clean = title_text_clean[:keyword_length]
+
+                if title_text_clean == search_title_clean:
+                    time.sleep(random.randint(5, 15))  # 랜덤한 대기 시간
+                    title_element.click()  # 일치하는 제목을 가진 첫 번째 요소 클릭
+                    time.sleep(random.randint(2, 5))
+                    if use_chat:
+                        handle_chat(driver)
 
 
-                found = True
-                break  # 일치하는 제목을 찾으면 내부 루프 탈출
+                    found = True
+                    break  # 일치하는 제목을 찾으면 내부 루프 탈출
 
-        if found:
-            break  # 일치하는 제목을 찾으면 외부 루프도 탈출
+            if found:
+                break  # 일치하는 제목을 찾으면 외부 루프도 탈출
 
-        # 스크롤 전 현재 위치 저장
-        last_height = driver.execute_script("return window.pageYOffset;")
+            # 스크롤 전 현재 위치 저장
+            last_height = driver.execute_script("return window.pageYOffset;")
 
-        # 페이지 끝까지 스크롤
-        driver.execute_script("window.scrollBy(0, document.documentElement.clientHeight);")
-        time.sleep(random.randint(2, 5))
+            # 페이지 끝까지 스크롤
+            driver.execute_script("window.scrollBy(0, document.documentElement.clientHeight);")
+            time.sleep(random.randint(2, 5))
 
-        # 스크롤 후 위치 확인
-        new_height = driver.execute_script("return window.pageYOffset;")
-        logging.info(f"Scrolled from {last_height} to {new_height}")
+            # 스크롤 후 위치 확인
+            new_height = driver.execute_script("return window.pageYOffset;")
+            logging.info(f"Scrolled from {last_height} to {new_height}")
 
-        # 페이지 카운터 증가
-        current_page += 1
+            # 페이지 카운터 증가
+            current_page += 1
 
-        if new_height == last_height:
-            break  # 더 이상 스크롤되지 않으면 반복 중단
+            if new_height == last_height:
+                break  # 더 이상 스크롤되지 않으면 반복 중단
 
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        break  # 예외 발생 시 루프 탈출
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            break  # 예외 발생 시 루프 탈출
 
-driver.close()
+    # driver.close()
+
+if __name__ == "__main__":
+    main()
