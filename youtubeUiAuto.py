@@ -1,3 +1,4 @@
+import string
 import time
 
 
@@ -6,6 +7,7 @@ from selenium.common import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.support.select import Select
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -149,40 +151,72 @@ def google_login():
     global google_table_id
     use_account = True
     # API 요청
-    response = api.get('/api/google-account', params=None)
-    if 'id' in response:
-        google_account_email = response.get('email', '')
-        google_account_passwd = response.get('password', '')
-        google_table_id = response.get('id', '')
-        google_account_level = response.get('level', '')
-    else:
-        print("API 요청 실패")
+    # response = api.get('/api/google-account', params=None)
+    # if 'id' in response:
+    #     google_account_email = response.get('email', '')
+    #     google_account_passwd = response.get('password', '')
+    #     google_table_id = response.get('id', '')
+    #     google_account_level = response.get('level', '')
+    # else:
+    #     print("API 요청 실패")
 
     if use_account:
         # YouTube 로그인 URL
-        youtube_login_url = "https://accounts.google.com/ServiceLogin?service=youtube"
+        # youtube_login_url = "https://accounts.google.com/ServiceLogin?service=youtube"
 
         # YouTube에 접속
-        driver.get(youtube_login_url)
+        # driver.get(youtube_login_url)
 
         # 로그인 요소 찾기
+        driver.get("https://www.google.com")
         try:
-            # 사용자 이름 입력
-            username_input = driver.find_element(By.ID, "identifierId")
-            username_input.send_keys(google_account_email)  # 실제 사용자 이름으로 변경
-            username_input.send_keys(Keys.ENTER)
-            time.sleep(5)  # 페이지 로드 대기
+            profile_image = driver.find_element_by_xpath("//img[@alt='프로필 이미지']")
 
-            # 비밀번호 입력
-            password_input = driver.find_element(By.NAME, "Passwd")
-            password_input.send_keys(google_account_passwd)  # 실제 비밀번호로 변경
-            password_input.send_keys(Keys.ENTER)
-            time.sleep(3)  # 로그인 후 페이지 로드 대기
-
-            logging.info("YouTube 로그인 성공")
-            api.post('/api/google-account-result', {"id": google_table_id,"login_status":'Y'})
+            logging.info("login ")
+            # api.post('/api/google-account-result', {"id": google_table_id,"login_status":'Y'})
         except Exception as e:
-            api.post('/api/google-account-result', {"id": google_table_id,"login_status":'N'})
+            login_button = driver.find_element(By.XPATH, "//a[@aria-label='로그인']")
+            login_button.click()
+            time.sleep(5)
+            create_account_button = driver.find_element(By.XPATH, "//span[text()='계정 만들기']")
+            create_account_button.click()
+            time.sleep(5)
+            personal_button = driver.find_element(By.XPATH, "//span[text()='개인용']")
+            personal_button.click()
+            time.sleep(5)
+            # 랜덤한 영문 4자리 생성
+            random_letters = ''.join(random.choices(string.ascii_lowercase, k=4))
+
+            # 인풋 필드에 입력
+            input_field = driver.find_element(By.ID, "firstName")
+            input_field.send_keys(random_letters)
+            time.sleep(3)
+            driver.find_element(By.XPATH, "//span[text()='다음']").click()
+            time.sleep(3)
+            random_year = str(random.randint(1960, 2000))
+            driver.find_element(By.ID, "year").send_keys(random_year)
+            time.sleep(3)
+            driver.find_element(By.ID, "month").click()
+            select = Select(driver.find_element(By.ID, "month"))
+            # 1부터 12까지의 옵션 중에서 랜덤하게 선택
+            random_month = str(random.randint(1, 12))
+            # 랜덤한 값을 선택
+            select.select_by_value(random_month)
+            time.sleep(3)
+            driver.find_element(By.ID, "day").send_keys("15")
+            time.sleep(3)
+            selectGender = Select(driver.find_element(By.ID, "gender"))
+            selectGender.select_by_value("남자")
+            time.sleep(3)
+            driver.find_element(By.XPATH, "//span[text()='다음']").click()
+            time.sleep(3)
+            driver.find_element(By.ID, "selectionc2").click()
+            time.sleep(3)
+            driver.find_element(By.XPATH, "//span[text()='다음']").click()
+            time.sleep(3)
+            Select(driver.find_element(By.NAME, "Passwd")).send_keys("!1qazsoftj")
+            time.sleep(3)
+            Select(driver.find_element(By.NAME, "PasswdAgain")).send_keys("!1qazsoftj")
             logging.error(f"로그인 중 오류 발생: {e}")
             raise
 # 필터 아이콘 요소 찾기
@@ -207,7 +241,7 @@ def search_filter():
     time.sleep(2)
     try:
         # "실시간 검색" 또는 "Search for Live"를 포함하는 CSS 선택자
-        css_selector = "div[title*='실시간 검색'], div[title*='Search for Live'] yt-formatted-string"
+        css_selector = "div[title*='라이브 검색'], div[title*='Search for Live'] yt-formatted-string"
 
         # 해당 CSS 선택자로 요소를 찾습니다.
         elements = driver.find_elements(By.CSS_SELECTOR, css_selector)
@@ -215,7 +249,7 @@ def search_filter():
         # 찾은 요소들 중에서 "실시간" 또는 "Search for Live" 텍스트를 가진 요소를 찾습니다.
         target_element = None
         for element in elements:
-            if "실시간" in element.text or "Live" in element.text:
+            if "라이브" in element.text or "Live" in element.text:
                 target_element = element
                 break
 
