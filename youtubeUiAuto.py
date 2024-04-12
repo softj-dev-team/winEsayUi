@@ -280,9 +280,9 @@ def search_init(search_keyword):
 
 def main():
     try:
-        use_chat = True
+        use_chat = False
         if use_chat:
-            use_google_login = True
+            use_google_login = False
             if use_google_login:
                 try:
                     google_login()
